@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+from datetime import datetime
 
 # --- CONFIG & THEME ---
 st.set_page_config(page_title="Mahendra Bodyshop Management", layout="wide", page_icon="🛠️")
@@ -13,17 +14,25 @@ st.markdown("""
         text-align: center; margin-bottom: 20px;
     }
     .main-title { font-size: 30px; font-weight: bold; color: #1E88E5; text-align: center; }
-    .stExpander { border: 1px solid #1E88E5; border-radius: 10px; margin-bottom: 10px; }
+    .recent-update { border: 2px solid #FF4B4B !important; border-radius: 10px; margin-bottom: 10px; background-color: #FFF5F5; }
+    .normal-update { border: 1px solid #1E88E5; border-radius: 10px; margin-bottom: 10px; }
     .footer { position: fixed; left: 0; bottom: 0; width: 100%; background-color: #f8f9fa; color: #1E88E5; text-align: center; padding: 5px; font-size: 12px; border-top: 1px solid #ddd; z-index: 100; }
     </style>
     """, unsafe_allow_html=True)
 
 DB_FILE = "claim_database.csv"
+# Aj ki date automatically pick hogi
+TODAY = datetime.now().strftime("%Y-%m-%d")
 
 def load_data():
     if os.path.exists(DB_FILE):
-        return pd.read_csv(DB_FILE).astype(str)
-    return pd.DataFrame(columns=["Car Number", "Customer Name", "Status", "Delivery Date", "Message"])
+        df = pd.read_csv(DB_FILE).astype(str)
+        if "Last Update" not in df.columns:
+            df["Last Update"] = TODAY
+        # Recent updates ko hamesha top par rakhega
+        df = df.sort_values(by="Last Update", ascending=False)
+        return df
+    return pd.DataFrame(columns=["Car Number", "Customer Name", "Status", "Delivery Date", "Message", "Last Update"])
 
 STATUS_LIST = ["Car Received", "Claim Intimation", "Insurance Survey", "Insurance Approval", "Dismental", "Denting", "Painting", "Fitting", "Delivery Order Waiting from Insurance Company", "Final Delivery"]
 
@@ -52,9 +61,10 @@ if menu == "Customer Portal":
             row = res.iloc[0]
             st.success(f"**Current Status:** {row['Status']}")
             st.info(f"**Expected Delivery:** {row['Delivery Date']}")
+            st.warning(f"🕒 **Data Updated On:** {row['Last Update']}")
             if row['Status'] in STATUS_LIST:
                 st.progress((STATUS_LIST.index(row['Status']) + 1) / len(STATUS_LIST))
-        else: st.error("No record found.")
+        else: st.error("No record found for this car number.")
 
 # --- EMPLOYEE DASHBOARD ---
 else:
@@ -71,70 +81,84 @@ else:
     else:
         df = load_data()
         
-        # --- TOP METRICS ---
+        # --- DASHBOARD METRICS ---
         c1, c2, c3 = st.columns(3)
         with c1: st.markdown(f"<div class='metric-card'><h3>Total Cars</h3><h1>{len(df)}</h1></div>", unsafe_allow_html=True)
         with c2: 
-            work_in_progress = len(df[df["Status"] != "Final Delivery"])
-            st.markdown(f"<div class='metric-card'><h3>In Progress</h3><h1>{work_in_progress}</h1></div>", unsafe_allow_html=True)
+            updated_today = len(df[df["Last Update"] == TODAY])
+            st.markdown(f"<div class='metric-card'><h3>Updated Today</h3><h1>{updated_today}</h1></div>", unsafe_allow_html=True)
         with c3:
             ready_cars = len(df[df["Status"] == "Final Delivery"])
-            st.markdown(f"<div class='metric-card'><h3>Ready</h3><h1>{ready_cars}</h1></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='metric-card'><h3>Ready to Go</h3><h1>{ready_cars}</h1></div>", unsafe_allow_html=True)
 
-        tab1, tab2 = st.tabs(["📋 Manage Records (Quick Edit)", "➕ Add New Entry"])
+        tab1, tab2 = st.tabs(["📋 Records (Newest First)", "➕ Register New Car"])
 
         with tab1:
-            search = st.text_input("🔎 Search (Last 4 Digits / Name)").upper()
+            search = st.text_input("🔎 Search (Last 4 digits/Name)").upper()
             filtered_df = df[df.apply(lambda row: search in row.astype(str).str.upper().values, axis=1)] if search else df
             
             for i, row in filtered_df.iterrows():
-                icon = "✅" if row['Status'] == "Final Delivery" else "🛠️"
-                display_title = f"{icon} {row['Car Number']} | {row['Customer Name']} | 📍 {row['Status']}"
+                is_recent = row['Last Update'] == TODAY
+                box_class = "recent-update" if is_recent else "normal-update"
+                icon = "🔴" if is_recent else "⚪"
+                
+                st.markdown(f"<div class='{box_class}'>", unsafe_allow_html=True)
+                # Display title with Status and Last Update Date
+                display_title = f"{icon} {row['Car Number']} | {row['Customer Name']} | {row['Status']} (Last: {row['Last Update']})"
                 
                 with st.expander(display_title):
-                    # IN-LINE EDITING FORM
-                    with st.form(key=f"quick_form_{i}"):
-                        st.write("### Quick Status Update")
+                    with st.form(key=f"quick_edit_{i}"):
+                        st.write("### Quick Management")
                         col_a, col_b = st.columns(2)
                         with col_a:
-                            new_status = st.selectbox("Change Status", STATUS_LIST, 
-                                                     index=STATUS_LIST.index(row['Status']) if row['Status'] in STATUS_LIST else 0)
+                            new_status = st.selectbox("Status", STATUS_LIST, index=STATUS_LIST.index(row['Status']) if row['Status'] in STATUS_LIST else 0)
                         with col_b:
-                            new_date = st.date_input("Update Delivery Date", value=pd.to_datetime(row['Delivery Date']).date() if row['Delivery Date'] != 'nan' else None)
+                            # Handling date conversion safely
+                            try:
+                                default_date = pd.to_datetime(row['Delivery Date']).date()
+                            except:
+                                default_date = datetime.now().date()
+                            new_date = st.date_input("Target Delivery", value=default_date)
                         
                         new_msg = st.text_area("Update Note", value="" if row['Message'] == "nan" else row['Message'])
                         
-                        btn_col1, btn_col2 = st.columns([1, 4])
-                        if btn_col1.form_submit_button("Update ✅"):
+                        # ACTION BUTTONS
+                        btn_col1, btn_col2 = st.columns([1, 1])
+                        
+                        if btn_col1.form_submit_button("Save Update ✅"):
                             df.at[i, 'Status'] = new_status
                             df.at[i, 'Delivery Date'] = str(new_date)
                             df.at[i, 'Message'] = new_msg
+                            df.at[i, 'Last Update'] = TODAY
                             df.to_csv(DB_FILE, index=False)
-                            st.success("Updated!")
+                            st.success("Data Updated!")
                             st.rerun()
-                        
-                        if btn_col2.form_submit_button("Delete 🗑️"):
+
+                        if btn_col2.form_submit_button("Delete Car 🗑️"):
+                            # Delete by checking Car Number in original dataframe
                             df = df.drop(i)
                             df.to_csv(DB_FILE, index=False)
+                            st.warning("Car Record Deleted!")
                             st.rerun()
+                st.markdown("</div>", unsafe_allow_html=True)
 
         with tab2:
-            st.write("### Register New Vehicle")
-            with st.form("new_entry_form"):
-                f_car = st.text_input("Car Number").upper().strip()
+            st.write("### New Vehicle Entry")
+            with st.form("new_car_form"):
+                f_car = st.text_input("Car Number (Full)").upper().strip()
                 f_name = st.text_input("Customer Name")
-                f_status = st.selectbox("Current Status", STATUS_LIST)
-                f_date = st.date_input("Target Delivery")
-                f_msg = st.text_area("Initial Notes")
+                f_status = st.selectbox("Initial Status", STATUS_LIST)
+                f_date = st.date_input("Target Delivery Date")
+                f_msg = st.text_area("Workshop Comments")
                 
-                if st.form_submit_button("Save New Claim"):
+                if st.form_submit_button("Add to Database"):
                     if f_car:
                         df = load_data()
-                        new_row = pd.DataFrame([[f_car, f_name, f_status, str(f_date), f_msg]], columns=df.columns)
+                        new_row = pd.DataFrame([[f_car, f_name, f_status, str(f_date), f_msg, TODAY]], columns=df.columns)
                         df = pd.concat([df, new_row], ignore_index=True)
                         df.to_csv(DB_FILE, index=False)
-                        st.success("New Entry Saved!")
+                        st.success("Vehicle Added Successfully!")
                         st.rerun()
-                    else: st.error("Car Number Required!")
+                    else: st.error("Car Number cannot be empty.")
 
-st.markdown("<div class='footer'>Mahendra Bodyshop Faizabad © 2026 | Developed by Owais Production</div>", unsafe_allow_html=True)
+st.markdown("<div class='footer'>Mahendra Bodyshop Faizabad © 2026 | Powered by Owais Production</div>", unsafe_allow_html=True)
