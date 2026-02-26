@@ -1,164 +1,181 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import datetime
+from datetime import datetime, time
 
 # --- CONFIG & THEME ---
 st.set_page_config(page_title="Mahendra Bodyshop Management", layout="wide", page_icon="🛠️")
 
 st.markdown("""
     <style>
-    .metric-card {
-        background-color: #ffffff; padding: 20px; border-radius: 10px;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.1); border-left: 5px solid #1E88E5;
-        text-align: center; margin-bottom: 20px;
+    .customer-card {
+        background-color: #ffffff; padding: 25px; border-radius: 15px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.1); border-top: 5px solid #28A745;
+        margin-top: 20px;
     }
-    .main-title { font-size: 30px; font-weight: bold; color: #1E88E5; text-align: center; }
-    .recent-update { border: 2px solid #FF4B4B !important; border-radius: 10px; margin-bottom: 10px; background-color: #FFF5F5; }
-    .normal-update { border: 1px solid #1E88E5; border-radius: 10px; margin-bottom: 10px; }
-    .footer { position: fixed; left: 0; bottom: 0; width: 100%; background-color: #f8f9fa; color: #1E88E5; text-align: center; padding: 5px; font-size: 12px; border-top: 1px solid #ddd; z-index: 100; }
+    .status-badge {
+        padding: 8px 15px; border-radius: 20px; color: white;
+        font-weight: bold; font-size: 15px; display: inline-block;
+        margin-bottom: 10px;
+    }
+    .time-badge {
+        background-color: #f1f8e9; color: #1b5e20; padding: 15px;
+        border-radius: 10px; border: 2px solid #2e7d32;
+        font-weight: bold; font-size: 22px; text-align: center; margin-top: 15px;
+    }
+    .section-header {
+        background-color: #1E88E5; color: white; padding: 10px;
+        border-radius: 5px; margin-top: 20px; margin-bottom: 10px;
+        font-weight: bold; font-size: 18px; text-align: center;
+    }
+    .stButton>button {
+        height: 3em;
+        border-radius: 10px;
+        font-weight: bold;
+    }
     </style>
     """, unsafe_allow_html=True)
 
 DB_FILE = "claim_database.csv"
-# Aj ki date automatically pick hogi
 TODAY = datetime.now().strftime("%Y-%m-%d")
+
+STATUS_LIST = [
+    "Car Received", "Claim Intimation", "Insurance Survey", "Insurance Approval", 
+    "WIP - Work Started", "Dismental", "Denting", "Painting", "Fitting", 
+    "Delivery Order Waiting from Insurance Company", "Final Delivery"
+]
+
+STATUS_MAP_HINDI = {
+    "Car Received": "गाड़ी प्राप्त हुई (Car Received)",
+    "Claim Intimation": "क्लेम की सूचना दी गई (Claim Intimation)",
+    "Insurance Survey": "बीमा सर्वे जारी है (Insurance Survey)",
+    "Insurance Approval": "बीमा कंपनी से मंजूरी मिली (Insurance Approval)",
+    "WIP - Work Started": "काम शुरू हो चुका है (Work Started)",
+    "Dismental": "गाड़ी खोली जा रही है (Dismental)",
+    "Denting": "डेंटिंग का काम जारी है (Denting)",
+    "Painting": "पेंटिंग का काम जारी है (Painting)",
+    "Fitting": "फिटिंग का काम चल रहा है (Fitting)",
+    "Delivery Order Waiting from Insurance Company": "बीमा कंपनी से D.O. का इंतज़ार (D.O. Waiting)",
+    "Final Delivery": "गाड़ी डिलीवरी के लिए तैयार है (Ready for Delivery)"
+}
+
+FRONT_OFFICE = ["Car Received", "Claim Intimation", "Insurance Survey", "Insurance Approval"]
+WORKSHOP_FLOOR = ["WIP - Work Started", "Dismental", "Denting", "Painting", "Fitting"]
+READY_SECTION = ["Delivery Order Waiting from Insurance Company", "Final Delivery"]
 
 def load_data():
     if os.path.exists(DB_FILE):
         df = pd.read_csv(DB_FILE).astype(str)
-        if "Last Update" not in df.columns:
-            df["Last Update"] = TODAY
-        # Recent updates ko hamesha top par rakhega
-        df = df.sort_values(by="Last Update", ascending=False)
+        if "Delivery Time" not in df.columns: df["Delivery Time"] = ""
         return df
-    return pd.DataFrame(columns=["Car Number", "Customer Name", "Status", "Delivery Date", "Message", "Last Update"])
-
-STATUS_LIST = ["Car Received", "Claim Intimation", "Insurance Survey", "Insurance Approval", "Dismental", "Denting", "Painting", "Fitting", "Delivery Order Waiting from Insurance Company", "Final Delivery"]
+    return pd.DataFrame(columns=["Car Number", "Customer Name", "Status", "Delivery Date", "Message", "Last Update", "Delivery Time"])
 
 if 'logged_in' not in st.session_state: st.session_state['logged_in'] = False
 
-# --- SIDEBAR ---
 st.sidebar.title("Mahendra Bodyshop")
-menu = st.sidebar.radio("Navigation", ["Customer Portal", "Employee Dashboard"])
-
-if st.session_state['logged_in'] and menu == "Employee Dashboard":
-    if st.sidebar.button("🔒 Logout"):
-        st.session_state['logged_in'] = False
-        st.rerun()
-
-st.markdown(f"<div class='main-title'>MAHENDRA BODYSHOP FAIZABAD</div>", unsafe_allow_html=True)
-st.markdown("---")
+menu = st.sidebar.radio("Navigation", ["Customer Portal", "Staff Dashboard"])
 
 # --- CUSTOMER PORTAL ---
 if menu == "Customer Portal":
-    st.subheader("🔍 Track Your Repair")
-    car_input = st.text_input("Enter Car Number:").upper().strip()
-    if st.button("Check Status"):
+    st.markdown("<h2 style='text-align: center; color: #1E88E5;'>MAHENDRA BODYSHOP FAIZABAD</h2>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        car_input = st.text_input("गाड़ी नंबर डालें (UP42...)").upper().strip()
+        check_now = st.button("📊 स्टेटस देखें (Check Status)", use_container_width=True)
+    
+    if check_now and car_input:
         df = load_data()
         res = df[df["Car Number"] == car_input]
         if not res.empty:
             row = res.iloc[0]
-            st.success(f"**Current Status:** {row['Status']}")
-            st.info(f"**Expected Delivery:** {row['Delivery Date']}")
-            st.warning(f"🕒 **Data Updated On:** {row['Last Update']}")
-            if row['Status'] in STATUS_LIST:
-                st.progress((STATUS_LIST.index(row['Status']) + 1) / len(STATUS_LIST))
-        else: st.error("No record found for this car number.")
+            curr = row['Status']
+            st.markdown(f"""
+            <div class='customer-card'>
+                <h3 style='margin-bottom:0;'>🚗 {row['Car Number']}</h3>
+                <p style='color:gray;'>Customer: {row['Customer Name']}</p>
+                <hr>
+                <div style='display: flex; justify-content: space-between; align-items: center;'>
+                    <div>
+                        <p style='margin:0; font-size:14px;'>Status / स्थिति:</p>
+                        <span class='status-badge' style='background-color: {"#28A745" if curr == "Final Delivery" else "#FFA500" if curr in WORKSHOP_FLOOR else "#1E88E5"}'>
+                            {STATUS_MAP_HINDI.get(curr, curr)}
+                        </span>
+                    </div>
+                    <div style='text-align:right;'>
+                        <p style='margin:0; font-size:14px;'>Expected Date:</p>
+                        <b style='font-size:18px; color:#1E88E5;'>{row['Delivery Date']}</b>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            if curr == "Final Delivery" and row['Delivery Time'] not in ["", "nan"]:
+                st.markdown(f"<div class='time-badge'>🕒 डिलीवरी समय: {row['Delivery Time']}</div>", unsafe_allow_html=True)
+            
+            st.markdown("</div>", unsafe_allow_html=True)
+            idx = STATUS_LIST.index(curr) if curr in STATUS_LIST else 0
+            st.progress((idx + 1) / len(STATUS_LIST))
+        else:
+            st.error("No record found.")
 
-# --- EMPLOYEE DASHBOARD ---
+# --- STAFF DASHBOARD ---
 else:
     if not st.session_state['logged_in']:
-        col1, col2, col3 = st.columns([1,2,1])
-        with col2:
-            st.subheader("👨‍💻 Staff Login")
-            pw = st.text_input("Password", type="password")
-            if st.button("Login"):
-                if pw == "admin123":
-                    st.session_state['logged_in'] = True
-                    st.rerun()
-                else: st.error("Incorrect Password")
+        pw = st.text_input("Staff Password", type="password")
+        if st.button("Login", use_container_width=True):
+            if pw == "admin123": st.session_state['logged_in'] = True; st.rerun()
     else:
         df = load_data()
-        
-        # --- DASHBOARD METRICS ---
-        c1, c2, c3 = st.columns(3)
-        with c1: st.markdown(f"<div class='metric-card'><h3>Total Cars</h3><h1>{len(df)}</h1></div>", unsafe_allow_html=True)
-        with c2: 
-            updated_today = len(df[df["Last Update"] == TODAY])
-            st.markdown(f"<div class='metric-card'><h3>Updated Today</h3><h1>{updated_today}</h1></div>", unsafe_allow_html=True)
-        with c3:
-            ready_cars = len(df[df["Status"] == "Final Delivery"])
-            st.markdown(f"<div class='metric-card'><h3>Ready to Go</h3><h1>{ready_cars}</h1></div>", unsafe_allow_html=True)
+        t1, t2 = st.tabs(["📋 View Records", "➕ Add Car"])
 
-        tab1, tab2 = st.tabs(["📋 Records (Newest First)", "➕ Register New Car"])
-
-        with tab1:
-            search = st.text_input("🔎 Search (Last 4 digits/Name)").upper()
-            filtered_df = df[df.apply(lambda row: search in row.astype(str).str.upper().values, axis=1)] if search else df
+        with t1:
+            search_q = st.text_input("🔍 Search Car No/Name").upper().strip()
+            search_btn = st.button("Search / खोजें", use_container_width=True)
+            f_df = df[df.apply(lambda r: search_q in r.astype(str).str.upper().values, axis=1)] if (search_btn and search_q) else df
             
-            for i, row in filtered_df.iterrows():
-                is_recent = row['Last Update'] == TODAY
-                box_class = "recent-update" if is_recent else "normal-update"
-                icon = "🔴" if is_recent else "⚪"
-                
-                st.markdown(f"<div class='{box_class}'>", unsafe_allow_html=True)
-                # Display title with Status and Last Update Date
-                display_title = f"{icon} {row['Car Number']} | {row['Customer Name']} | {row['Status']} (Last: {row['Last Update']})"
-                
-                with st.expander(display_title):
-                    with st.form(key=f"quick_edit_{i}"):
-                        st.write("### Quick Management")
-                        col_a, col_b = st.columns(2)
-                        with col_a:
-                            new_status = st.selectbox("Status", STATUS_LIST, index=STATUS_LIST.index(row['Status']) if row['Status'] in STATUS_LIST else 0)
-                        with col_b:
-                            # Handling date conversion safely
-                            try:
-                                default_date = pd.to_datetime(row['Delivery Date']).date()
-                            except:
-                                default_date = datetime.now().date()
-                            new_date = st.date_input("Target Delivery", value=default_date)
-                        
-                        new_msg = st.text_area("Update Note", value="" if row['Message'] == "nan" else row['Message'])
-                        
-                        # ACTION BUTTONS
-                        btn_col1, btn_col2 = st.columns([1, 1])
-                        
-                        if btn_col1.form_submit_button("Save Update ✅"):
-                            df.at[i, 'Status'] = new_status
-                            df.at[i, 'Delivery Date'] = str(new_date)
-                            df.at[i, 'Message'] = new_msg
-                            df.at[i, 'Last Update'] = TODAY
-                            df.to_csv(DB_FILE, index=False)
-                            st.success("Data Updated!")
-                            st.rerun()
+            def render_list(data, title, clr):
+                if not data.empty:
+                    st.markdown(f"<div class='section-header' style='background-color:{clr}'>{title}</div>", unsafe_allow_html=True)
+                    for i, r in data.iterrows():
+                        with st.expander(f"⚙️ {r['Car Number']} | {r['Customer Name']}"):
+                            with st.form(f"f_edit_{i}"):
+                                ns = st.selectbox("Status", STATUS_LIST, index=STATUS_LIST.index(r['Status']) if r['Status'] in STATUS_LIST else 0)
+                                nd = st.text_input("Date", value=r['Delivery Date'])
+                                f_time = r['Delivery Time']
+                                if ns == "Final Delivery":
+                                    t_pick = st.time_input("Select Time", value=time(10, 0), key=f"t_p_{i}")
+                                    f_time = t_pick.strftime("%I:%M %p")
+                                nm = st.text_area("Notes", value=r['Message'] if r['Message'] != 'nan' else "")
+                                b_up, b_del = st.columns(2)
+                                if b_up.form_submit_button("Update ✅", use_container_width=True):
+                                    df.at[i, 'Status'] = ns
+                                    df.at[i, 'Delivery Date'] = nd
+                                    df.at[i, 'Delivery Time'] = f_time
+                                    df.at[i, 'Message'] = nm
+                                    df.at[i, 'Last Update'] = TODAY
+                                    df.to_csv(DB_FILE, index=False); st.rerun()
+                                if b_del.form_submit_button("Delete 🗑️", use_container_width=True):
+                                    df.drop(i).to_csv(DB_FILE, index=False); st.rerun()
+            
+            render_list(f_df[f_df['Status'].isin(FRONT_OFFICE)], "🏢 FRONT OFFICE", "#1E88E5")
+            render_list(f_df[f_df['Status'].isin(WORKSHOP_FLOOR)], "🔧 WORKSHOP FLOOR", "#FFA500")
+            render_list(f_df[f_df['Status'].isin(READY_SECTION)], "🏁 READY SECTION", "#28A745")
 
-                        if btn_col2.form_submit_button("Delete Car 🗑️"):
-                            # Delete by checking Car Number in original dataframe
-                            df = df.drop(i)
-                            df.to_csv(DB_FILE, index=False)
-                            st.warning("Car Record Deleted!")
-                            st.rerun()
-                st.markdown("</div>", unsafe_allow_html=True)
-
-        with tab2:
-            st.write("### New Vehicle Entry")
-            with st.form("new_car_form"):
-                f_car = st.text_input("Car Number (Full)").upper().strip()
-                f_name = st.text_input("Customer Name")
-                f_status = st.selectbox("Initial Status", STATUS_LIST)
-                f_date = st.date_input("Target Delivery Date")
-                f_msg = st.text_area("Workshop Comments")
+        with t2:
+            with st.form("new_entry", clear_on_submit=True):
+                nc = st.text_input("Car Number").upper().strip()
+                nn = st.text_input("Customer Name")
+                ns = st.selectbox("Initial Status", STATUS_LIST)
+                nd = st.date_input("Target Date")
                 
-                if st.form_submit_button("Add to Database"):
-                    if f_car:
-                        df = load_data()
-                        new_row = pd.DataFrame([[f_car, f_name, f_status, str(f_date), f_msg, TODAY]], columns=df.columns)
-                        df = pd.concat([df, new_row], ignore_index=True)
-                        df.to_csv(DB_FILE, index=False)
-                        st.success("Vehicle Added Successfully!")
-                        st.rerun()
-                    else: st.error("Car Number cannot be empty.")
+                if st.form_submit_button("🚀 Register Vehicle", use_container_width=True):
+                    if not nc or not nn:
+                        st.warning("Please fill details.")
+                    elif nc in df["Car Number"].values:
+                        st.error(f"Error: {nc} already exists!")
+                    else:
+                        new_r = pd.DataFrame([[nc, nn, ns, str(nd), "", TODAY, ""]], columns=df.columns)
+                        pd.concat([df, new_r], ignore_index=True).to_csv(DB_FILE, index=False)
+                        st.success(f"Vehicle {nc} Registered Successfully! ✅") # Pure professional message
 
-st.markdown("<div class='footer'>Mahendra Bodyshop Faizabad © 2026 | Powered by Owais Production</div>", unsafe_allow_html=True)
+st.markdown("<center>Mahendra Bodyshop © 2026</center>", unsafe_allow_html=True)
