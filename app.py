@@ -66,6 +66,9 @@ st.markdown("""
         background-color: #28a745 !important;
         color: white !important;
     }
+    .footer-text {
+        color: #777; font-size: 14px; margin-top: 50px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -88,7 +91,6 @@ STATUS_LIST = [
     "Delivery Order Waiting from Insurance Company", "Final Delivery"
 ]
 
-# Time options for delivery
 TIME_OPTIONS = [f"{h:02d}:00 {( 'AM' if h < 12 else 'PM')}" for h in range(24)]
 
 STATUS_DETAILS = {
@@ -147,7 +149,7 @@ if menu == "Customer Portal / ग्राहक पोर्टल":
             <b>DISCLAIMER / अस्वीकरण:</b><br>
             This website is managed by a third party to provide information regarding your vehicle's claim status. 
             This portal has no direct affiliation with Mahindra Company or Amit Motors.<br>
-            <i>यह वेबसाइट आपकी गाड़ी के क्लेम स्टेटस की जानकारी देने के लिए एक थर्ड पार्टी द्वारा मैनेज की जा रही है। 
+            <i>यह वेबसाइट आपकी गाड़ी के क्लेम स्टेटस की जानकारी देने के लिए एक थर्ड party द्वारा मैनेज की जा रही है। 
             इस पोर्टल का महिंद्रा कंपनी या अमित मोटर्स से कोई सीधा संबंध नहीं है।</i>
         </div>
     """, unsafe_allow_html=True)
@@ -159,7 +161,6 @@ if menu == "Customer Portal / ग्राहक पोर्टल":
         if not res.empty:
             for _, row in res.iterrows():
                 nxt = get_next_status(row['Status'])
-                # Delivery details display
                 d_time = row['Delivery Time'] if row['Delivery Time'] != "nan" and row['Delivery Time'] != "" else "Not Scheduled"
                 
                 if row['Status'] == "Final Delivery":
@@ -227,7 +228,7 @@ else:
             search = st.text_input("Search Car").upper().strip()
             f_df = df[df["Car Number"].str.upper().str.contains(search, na=False)] if search else df
 
-            def render_staff_expander(i, r):
+            def render_staff_expander(i, r, lock_sensitive=False):
                 tick = " ✅" if str(r['Last Update']) == TODAY_STR else ""
                 last_update_date = f" ({r['Last Update']})" if r['Last Update'] != "nan" and r['Last Update'] != "" else ""
                 with st.expander(f"🚗 {r['Car Number']} - {r['Status']}{tick}{last_update_date}"):
@@ -239,11 +240,10 @@ else:
                         
                         try: default_date = datetime.strptime(r['Delivery Date'], '%Y-%m-%d').date()
                         except: default_date = NOW.date()
-                        nd = c_date.date_input("Delivery Date", value=default_date, key=f"date_{i}")
                         
-                        # Added Delivery Time selection
-                        curr_time = r['Delivery Time'] if r['Delivery Time'] in TIME_OPTIONS else TIME_OPTIONS[10] # Default 10 AM
-                        nt = c_time.selectbox("Delivery Time", TIME_OPTIONS, index=TIME_OPTIONS.index(curr_time), key=f"time_{i}")
+                        nd = c_date.date_input("Delivery Date", value=default_date, key=f"date_{i}", disabled=lock_sensitive)
+                        curr_time = r['Delivery Time'] if r['Delivery Time'] in TIME_OPTIONS else TIME_OPTIONS[10]
+                        nt = c_time.selectbox("Delivery Time", TIME_OPTIONS, index=TIME_OPTIONS.index(curr_time), key=f"time_{i}", disabled=lock_sensitive)
                         
                         nm = st.text_area("Remark", value=r['Message'] if r['Message'] != 'nan' else "")
                         
@@ -251,8 +251,10 @@ else:
                             new_ts = f"{TODAY_STR} at {TIME_STR}"
                             df.at[i,'Status'], df.at[i,'Delivery Date'], df.at[i,'Delivery Time'], df.at[i,'Message'], df.at[i,'Remark Update TS'], df.at[i,'Last Update'] = ns, str(nd), nt, nm, new_ts, TODAY_STR
                             df.to_csv(DB_FILE, index=False); st.rerun()
-                        if st.form_submit_button("Delete 🗑️"):
-                            df.drop(i).to_csv(DB_FILE, index=False); st.rerun()
+                        
+                        if not lock_sensitive:
+                            if st.form_submit_button("Delete 🗑️"):
+                                df.drop(i).to_csv(DB_FILE, index=False); st.rerun()
 
             front_df = f_df[f_df['Status'].isin(["Car Received", "Claim Intimation", "Insurance Survey", "Insurance Approval", "WCA - Waiting for Customer Approval", "Claim Rejected"])]
             st.markdown(f"<div class='section-header' style='border-left-color:#1E88E5'>🏢 FRONT OFFICE ({len(front_df)})</div>", unsafe_allow_html=True)
@@ -265,7 +267,7 @@ else:
 
             workshop_df = f_df[f_df['Status'].isin(["WIP - Work Started", "Dismantle", "Denting", "Painting", "Fitting", "PNA - Part Not Available"])]
             st.markdown(f"<div class='section-header' style='border-left-color:#FFA500'>🔧 WORKSHOP FLOOR ({len(workshop_df)})</div>", unsafe_allow_html=True)
-            for i, r in workshop_df.iterrows(): render_staff_expander(i, r)
+            for i, r in workshop_df.iterrows(): render_staff_expander(i, r, lock_sensitive=True)
 
             ready_df = f_df[f_df['Status'].isin(["Delivery Order Waiting from Insurance Company", "Final Delivery"])]
             st.markdown(f"<div class='section-header' style='border-left-color:#28A745'>🏁 Ready ({len(ready_df)})</div>", unsafe_allow_html=True)
@@ -277,7 +279,7 @@ else:
                 nn = st.text_input("Customer Name"); sa = st.text_input("Advisor")
                 c1, c2 = st.columns(2)
                 nd = c1.date_input("Expected Date")
-                nt = c2.selectbox("Expected Time", TIME_OPTIONS, index=10) # Default 10 AM
+                nt = c2.selectbox("Expected Time", TIME_OPTIONS, index=10)
                 if st.form_submit_button("🚀 Save Car"):
                     if nc and nn:
                         new_data = {col: "" for col in df.columns}
@@ -291,4 +293,5 @@ else:
             if not gdf_staff.empty:
                 st.dataframe(gdf_staff.iloc[::-1], use_container_width=True, hide_index=True)
 
-st.markdown("<br><center>Bodyshop © 2026</center>", unsafe_allow_html=True)
+# Branding Footer
+st.markdown("<br><center class='footer-text'><b>Engineered by Owais</b><br>Bodyshop Portal © 2026</center>", unsafe_allow_html=True)
