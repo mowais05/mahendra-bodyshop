@@ -256,24 +256,7 @@ else:
         col_title, col_share = st.columns([3, 1])
         with col_title:
             st.markdown("## 📋 Staff Dashboard")
-        with col_share:
-            wa_msg = f"Dear sir! Aap apni gaadi ka status yahan check kar sakte hain: {WEB_URL}"
-            wa_link = f"https://wa.me/?text={urllib.parse.quote(wa_msg)}"
-            st.markdown(f"""
-                <a href='{wa_link}' target='_blank' 
-                   style='background-color: #25D366; color: white; padding: 10px 15px; 
-                   border-radius: 10px; text-decoration: none; font-weight: bold; 
-                   display: inline-block; float: right; margin-top: 20px;'>
-                   📲 Share Portal Link
-                </a>
-                """, unsafe_allow_html=True)
-        
-        df = load_data()
-        t1, t2, t3 = st.tabs([" View Records", " Add New Car", "🛡️ Guard Records"])
-        with t1:
-            st.download_button("📥 Download Report", df.to_csv(index=False).encode('utf-8-sig'), f"Report_{TODAY_STR}.csv")
-            search = st.text_input("Search Car").upper().strip()
-            f_df = df[df["Car Number"].str.upper().str.contains(search, na=False)] if search else df
+       se)] if search else df
             def render_staff_expander(i, r, lock_sensitive=False):
                 tick = " ✅" if str(r['Last Update']) == TODAY_STR else ""
                 last_update_date = f" ({r['Last Update']})" if r['Last Update'] != "nan" and r['Last Update'] != "" else ""
