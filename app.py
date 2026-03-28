@@ -15,7 +15,6 @@ except ImportError:
     from filelock import FileLock
 
 # --- CONFIG & THEME ---
-# initial_sidebar_state="collapsed" taaki direct portal dikhe
 st.set_page_config(page_title="Bodyshop", layout="wide", page_icon="🚗", initial_sidebar_state="collapsed")
 
 # Accurate India Time Function
@@ -38,7 +37,6 @@ st.markdown("""
         margin-top: 20px;
     }
     
-    /* --- 10-STEP SLIM STEPPER CSS --- */
     .stepper-wrapper {
         display: flex; justify-content: space-between; margin-top: 30px; margin-bottom: 30px; position: relative;
     }
@@ -130,7 +128,6 @@ WEB_URL = "https://mahendra-bodyshop-pnzpwm5nbeok4x5usgtntb.streamlit.app/"
 
 MAIN_SEQUENCE = ["Car Received", "Claim Intimation", "Insurance Survey", "Insurance Approval", "Dismantle", "Denting", "Painting", "Fitting", "Delivery Order Waiting from Insurance Company", "Final Delivery"]
 STATUS_LIST = ["Car Received", "Claim Intimation", "Insurance Survey", "Insurance Approval", "WCA - Waiting for Customer Approval", "Claim Rejected", "PNA - Part Not Available", "WIP - Work Started", "Dismantle", "Denting", "Painting", "Fitting", "Delivery Order Waiting from Insurance Company", "Final Delivery"]
-TIME_OPTIONS = [f"{h:02d}:00 {( 'AM' if h < 12 else 'PM')}" for h in range(24)]
 
 APPROVAL_INDEX = STATUS_LIST.index("Insurance Survey")
 
@@ -146,7 +143,7 @@ STATUS_DETAILS = {
     "Dismantle": "Your vehicle is currently undergoing dismantling for a detailed damage assessment and repair preparation. / आपकी गाड़ी की मरम्मत की तैयारी और नुकसान की बारीकी से जांच करने के लिए उसे डिस्मेंटल किया (खोला) जा रहा है।",
     "Denting": "Denting work is in progress. / आपकी गाड़ी का डेंटिंग कार्य चल रहा है।",
     "Painting": "Painting work is in progress. / आपकी गाड़ी का पेंटिंग कार्य चल रहा. है।",
-    "Fitting": "The major repairs are complete. Your vehicle is now undergoing final assembly and quality testing to ensure your safety on the road. / मुख्य मरम्मत का काम पूरा हो चुका है। सड़क पर आपकी सुरक्षा सुनिश्चित करने के लिए अब गाड़ी की फाइनल फिटिंग और क्वालिटी टेस्टिंग की जा रही है।",
+    "Fitting": "The major repairs are complete. Your vehicle is now undergoing final assembly and quality testing to ensure your safety on the road. / मुख्य मरम्मत का काम पूरा ho चुका है। सड़क पर आपकी सुरक्षा सुनिश्चित करने के लिए अब गाड़ी की फाइनल फिटिंग और क्वालिटी टेस्टिंग की जा रही है।",
     "Delivery Order Waiting from Insurance Company": "The repair work is complete, and we are currently awaiting the official Delivery Order (DO) from the insurance surveyor. Please note that the vehicle cannot be released without this mandatory document. For any updates regarding the DO, we kindly request you to contact your insurance surveyor directly, as the repairer has no authority in this matter. We appreciate your cooperation. / आपकी गाड़ी की मरम्मत का कार्य पूरा हो चुका है, और अब हमें बीमा सर्वेयर से आधिकारिक डिलीवरी ऑर्डर (DO) मिलने का इंतज़ार है। कृपया ध्यान दें कि इस अनिवार्य दस्तावेज़ के बिना गाड़ी हैंडओवर नहीं की जा सकती। डिलीवरी ऑर्डर (DO) के संबंध में किसी भी जानकारी के लिए कृपया सीधे अपने बीमा सर्वेयर से संपर्क करें, क्योंकि इसमें रिपेयरर (वर्कशॉप) का कोई अधिकार नहीं होता है। आपके सहयोग के लिए धन्यवाद।",
     "Final Delivery": "Your vehicle is ready for delivery! / आपकी गाड़ी डिलीवरी के लिए तैयार हैं!"
 }
@@ -163,7 +160,7 @@ def get_next_status(current):
     return "Next process update soon"
 
 def load_data():
-    base_cols = ["Car Number", "Customer Name", "Service Advisor", "Status", "Delivery Date", "Message", "Last Update", "Delivery Time", "Remark Update TS"]
+    base_cols = ["Car Number", "Customer Name", "Service Advisor", "Status", "Delivery Date", "Message", "Last Update", "Remark Update TS"]
     tracking_cols = [f"Date_{s.split(' - ')[0]}" for s in STATUS_LIST]
     all_cols = base_cols + tracking_cols
     lock = FileLock(DB_LOCK)
@@ -183,7 +180,6 @@ def load_guard_data():
     return pd.DataFrame(columns=["Car Number", "Kilometer", "Entry Date", "Entry Time"])
 
 st.sidebar.markdown("### 🛠️ Bodyshop")
-# index=0 ensures Customer Portal is default
 menu = st.sidebar.radio("Navigation", ["Customer Portal / ग्राहक पोर्टल", "Guard Portal / गार्ड पोर्टल", "Staff Dashboard / स्टाफ"], index=0)
 
 if menu == "Customer Portal / ग्राहक पोर्टल":
@@ -204,7 +200,6 @@ if menu == "Customer Portal / ग्राहक पोर्टल":
         res = df[df["Car Number"].str.replace(" ", "").str.upper() == car_input]
         if not res.empty:
             for _, row in res.iterrows():
-                # --- 10-STEP PROGRESS BAR LOGIC ---
                 steps = ["Received", "Intimation", "Survey", "Approval", "Repairing", "Denting", "Painting", "Fitting", "DO Wait", "Ready"]
                 mapping = {
                     "Car Received": 1, "Claim Intimation": 2, "Insurance Survey": 3,
@@ -224,16 +219,9 @@ if menu == "Customer Portal / ग्राहक पोर्टल":
 
                 nxt = get_next_status(row['Status'])
                 current_status_idx = STATUS_LIST.index(row['Status']) if row['Status'] in STATUS_LIST else 0
+                is_approved = current_status_idx > APPROVAL_INDEX if row['Status'] != "Claim Rejected" else False
                 
-                if row['Status'] == "Claim Rejected": is_approved = False
-                else: is_approved = current_status_idx > APPROVAL_INDEX
-                
-                if is_approved:
-                    d_date_display = row['Delivery Date']
-                    d_time_display = row['Delivery Time'] if row['Delivery Time'] not in ["nan", ""] else "Not Scheduled"
-                else:
-                    d_date_display = "Pending Approval"
-                    d_time_display = "TBD"
+                d_date_display = row['Delivery Date'] if is_approved else "Pending Approval"
 
                 if row['Status'] == "Final Delivery":
                     st.markdown(f"""
@@ -245,15 +233,15 @@ if menu == "Customer Portal / ग्राहक पोर्टल":
                             <p class='status-time'>Final Update: {row['Remark Update TS']}</p>
                             <hr style='border: 0.5px solid #ccc;'>
                             <p style='font-size:20px; color:#28a745; font-weight:bold;'>✨ Delivery Date: {row['Delivery Date']}</p>
-                            <div class='time-large'>🕒 Time: {row['Delivery Time']}</div>
                         </div>
                     """, unsafe_allow_html=True)
                 else:
-                    if row['Status'] == "Claim Rejected": delivery_info_html = ""
-                    elif not is_approved:
-                        delivery_info_html = f"<p style='margin-top:10px; font-size:14px; color:#d32f2f; background:#fff3e0; padding:10px; border-radius:8px; border-left:4px solid #f57c00;'><b>Note:</b> The estimated delivery date can only be confirmed once approval is received from the insurance company.</p>"
-                    else:
-                        delivery_info_html = f"<p>Expected Delivery: <b>{d_date_display}</b><br>Scheduled Time: <b>{d_time_display}</b></p>"
+                    delivery_info_html = ""
+                    if row['Status'] != "Claim Rejected":
+                        if not is_approved:
+                            delivery_info_html = f"<p style='margin-top:10px; font-size:14px; color:#d32f2f; background:#fff3e0; padding:10px; border-radius:8px; border-left:4px solid #f57c00;'><b>Note:</b> The estimated delivery date can only be confirmed once approval is received from the insurance company.</p>"
+                        else:
+                            delivery_info_html = f"<p>Expected Delivery: <b>{d_date_display}</b></p>"
 
                     st.markdown(f"""
                         <div class='customer-card'>
@@ -274,7 +262,6 @@ if menu == "Customer Portal / ग्राहक पोर्टल":
                     st.markdown(f"<div class='note-box'><b>Workshop Remarks:</b><br>\"{msg}\"</div>", unsafe_allow_html=True)
         else: st.error("❌ No record found.")
 
-# --- GUARD & STAFF PORTAL (RESTORED EXACTLY AS YOUR BASE CODE) ---
 elif menu == "Guard Portal / गार्ड पोर्टल":
     if not st.session_state['guard_logged_in']:
         st.markdown("<div class='main-header'><h1>GUARD LOGIN</h1></div>", unsafe_allow_html=True)
@@ -331,26 +318,30 @@ else:
         t1, t2, t3 = st.tabs([" View Records", " Add New Car", "🛡️ Guard Records"])
         
         with t1:
-            search_input = st.text_input("Search Car").upper().strip()
+            # UPDATED SEARCH SECTION WITH BUTTON FOR MOBILE USERS
+            sc1, sc2 = st.columns([4, 1])
+            with sc1:
+                search_input = st.text_input("Search Car", placeholder="Enter Car Number...", label_visibility="collapsed").upper().strip()
+            with sc2:
+                do_search = st.button("🔍 Search")
+            
             f_df = df if not search_input else df[(df["Car Number"].str.upper().str.contains(search_input, na=False)) | (df["Car Number"].str.strip().str[-4:].str.contains(search_input, na=False))]
             
             def render_staff_expander(i, r, lock_sensitive=False):
                 tick = " ✅" if str(r['Last Update']) == TODAY_STR else ""
                 with st.expander(f"🚗 {r['Car Number']} - {r['Status']}{tick}"):
                     with st.form(f"f_{i}"):
-                        c_stat, c_date, c_time = st.columns([2, 1, 1])
+                        c_stat, c_date = st.columns([2, 1])
                         ns = c_stat.selectbox("Status", STATUS_LIST, index=STATUS_LIST.index(r['Status']) if r['Status'] in STATUS_LIST else 0)
                         is_approved_staff = STATUS_LIST.index(ns) > APPROVAL_INDEX
                         try: default_date = datetime.strptime(r['Delivery Date'], '%Y-%m-%d').date()
                         except: default_date = get_india_time().date()
                         nd = c_date.date_input("Delivery Date", value=default_date, key=f"date_{i}", disabled=(not is_approved_staff))
-                        curr_time = r['Delivery Time'] if r['Delivery Time'] in TIME_OPTIONS else TIME_OPTIONS[10]
-                        nt = c_time.selectbox("Delivery Time", TIME_OPTIONS, index=TIME_OPTIONS.index(curr_time), key=f"time_{i}", disabled=(not is_approved_staff))
                         nm = st.text_area("Remark", value=r['Message'] if r['Message'] != 'nan' else "")
                         if st.form_submit_button("Update ✅"):
                             now_ts = get_india_time()
                             new_ts_str = f"{now_ts.strftime('%Y-%m-%d')} at {now_ts.strftime('%I:%M %p')}"
-                            df.at[i,'Status'], df.at[i,'Delivery Date'], df.at[i,'Delivery Time'], df.at[i,'Message'], df.at[i,'Remark Update TS'], df.at[i,'Last Update'] = ns, (str(nd) if is_approved_staff else ""), (nt if is_approved_staff else ""), nm, new_ts_str, now_ts.strftime('%Y-%m-%d')
+                            df.at[i,'Status'], df.at[i,'Delivery Date'], df.at[i,'Message'], df.at[i,'Remark Update TS'], df.at[i,'Last Update'] = ns, (str(nd) if is_approved_staff else ""), nm, new_ts_str, now_ts.strftime('%Y-%m-%d')
                             with FileLock(DB_LOCK): df.to_csv(DB_FILE, index=False)
                             st.rerun()
                         if not lock_sensitive and st.form_submit_button("Delete 🗑️"):
@@ -377,12 +368,29 @@ else:
             with st.form("new_car"):
                 nc = st.text_input("Car Number").upper().strip()
                 nn = st.text_input("Customer Name"); sa = st.text_input("Advisor")
-                if st.form_submit_button("🚀 Save Car"):
+                if st.form_submit_button("Save Car"):
                     if nc and nn:
                         now_ts = get_india_time()
                         new_data = {col: "" for col in df.columns}
                         new_data.update({"Car Number": nc, "Customer Name": nn, "Service Advisor": sa, "Status": "Car Received", "Last Update": now_ts.strftime('%Y-%m-%d'), "Remark Update TS": f"{now_ts.strftime('%Y-%m-%d')} at {now_ts.strftime('%I:%M %p')}"})
                         with FileLock(DB_LOCK): pd.concat([df, pd.DataFrame([new_data])]).to_csv(DB_FILE, index=False)
                         st.success(f"{nc} Saved!"); time.sleep(1); st.rerun()
+
+        with t3:
+            st.markdown("### 🛡️ Guard Entry Logs")
+            gdf = load_guard_data()
+            g_search = st.text_input("Search Guard Records (Car No.)", key="g_search").upper().strip()
+            if not gdf.empty:
+                if g_search:
+                    gdf = gdf[gdf["Car Number"].str.contains(g_search, na=False)]
+                gdf_rev = gdf.iloc[::-1]
+                for i, row in gdf_rev.iterrows():
+                    with st.expander(f"🚗 {row['Car Number']} | {row['Kilometer']} KM | {row['Entry Date']} at {row['Entry Time']}"):
+                        st.write(f"**Vehicle:** {row['Car Number']}")
+                        st.write(f"**KM Reading:** {row['Kilometer']}")
+                        st.write(f"**Date:** {row['Entry Date']}")
+                        st.write(f"**Time:** {row['Entry Time']}")
+            else:
+                st.info("No guard entries found.")
 
 st.markdown("<br><center class='footer-text'><b>Engineered by Owais</b><br>Bodyshop Portal © 2026</center>", unsafe_allow_html=True)
