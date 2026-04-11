@@ -113,6 +113,11 @@ st.markdown("""
     .footer-text {
         color: #777; font-size: 14px; margin-top: 50px;
     }
+    input[type="password"] {
+        letter-spacing: 0.5em;
+        text-align: center;
+        font-size: 24px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -125,6 +130,15 @@ NOW_IN = get_india_time()
 TODAY_STR = NOW_IN.strftime("%Y-%m-%d")
 
 WEB_URL = "https://mahendra-bodyshop-pnzpwm5nbeok4x5usgtntb.streamlit.app/"
+
+# --- VEHICLE MODELS LIST ---
+VEHICLE_MODELS = [
+    "Select Model", "Armada", "Alfa", "Axe", "BE 6", "Bolero", "Bolero Neo", "Bolero Neo Plus", "Bolero Camper",
+    "Camper", "Cruzio", "e2o", "e2o Plus", "eVerito", "Genio", "Gio", "Grand Armada", "Invader", "Jeeto", 
+    "KUV100 NXT", "Marazzo", "Maxx City", "Quanto", "Roxx (Thar)", "Scorpio", "Scorpio-N", "Scorpio Classic", 
+    "Scorpio Getaway", "Thar", "Thar E", "TUV300", "Veero", "Verito", "XUV300", "XUV 3XO", "XUV400", "XUV500", 
+    "XUV700", "XEV 9e", "XEV 9S"
+]
 
 MAIN_SEQUENCE = ["Car Received", "Claim Intimation", "Insurance Survey", "Insurance Approval", "Dismantle", "Denting", "Painting", "Fitting", "Delivery Order Waiting from Insurance Company", "Final Delivery"]
 STATUS_LIST = ["Car Received", "Claim Intimation", "Insurance Survey", "Insurance Approval", "WCA - Waiting for Customer Approval", "Claim Rejected", "PNA - Part Not Available", "WIP - Work Started", "Dismantle", "Denting", "Painting", "Fitting", "Delivery Order Waiting from Insurance Company", "Final Delivery"]
@@ -177,22 +191,14 @@ def load_guard_data():
     with lock:
         if os.path.exists(GUARD_FILE):
             return pd.read_csv(GUARD_FILE).astype(str)
-    return pd.DataFrame(columns=["Car Number", "Kilometer", "Entry Date", "Entry Time"])
+    return pd.DataFrame(columns=["Car Number", "Vehicle Model", "Kilometer", "Entry Date", "Entry Time"])
 
 st.sidebar.markdown("### 🛠️ Bodyshop")
 menu = st.sidebar.radio("Navigation", ["Customer Portal / ग्राहक पोर्टल", "Guard Portal / गार्ड पोर्टल", "Staff Dashboard / स्टाफ"], index=0)
 
 if menu == "Customer Portal / ग्राहक पोर्टल":
     st.markdown("<div class='main-header'><h1>BODYSHOP</h1><p>Check Status / गाड़ी का स्टेटस देखें</p></div>", unsafe_allow_html=True)
-    st.markdown("""
-        <div class='disclaimer-box'>
-            <b>DISCLAIMER / अस्वीकरण:</b><br>
-            This website is managed by a third party to provide information regarding your vehicle's claim status. 
-            This portal has no direct affiliation with Mahindra Company or Amit Motors.<br>
-            <i>यह वेबसाइट आपकी गाड़ी के क्लेम स्टेटस की जानकारी देने के लिए एक थर्ड पार्टी द्वारा मैनेज की जा रही है। 
-            इस पोर्टल का महिंद्रा कंपनी या अमित मोटर्स से कोई सीधा संबंध नहीं है।</i>
-        </div>
-    """, unsafe_allow_html=True)
+    st.markdown("<div class='disclaimer-box'><b>DISCLAIMER / अस्वीकरण:</b><br>This website is managed by a third party to provide information regarding your vehicle's claim status. This portal has no direct affiliation with Mahindra Company or Amit Motors.<br><i>यह वेबसाइट आपकी गाड़ी के क्लेम स्टेटस की जानकारी देने के लिए एक थर्ड party द्वारा मैनेज की जा रही है। इस पोर्टल का महिंद्रा कंपनी या अमित मोटर्स से कोई सीधा संबंध नहीं है।</i></div>", unsafe_allow_html=True)
 
     car_input = st.text_input("Enter Full Vehicle Number").upper().replace(" ", "").strip()
     if st.button("Check Status") and car_input:
@@ -201,13 +207,7 @@ if menu == "Customer Portal / ग्राहक पोर्टल":
         if not res.empty:
             for _, row in res.iterrows():
                 steps = ["Received", "Intimation", "Survey", "Approval", "Repairing", "Denting", "Painting", "Fitting", "DO Wait", "Ready"]
-                mapping = {
-                    "Car Received": 1, "Claim Intimation": 2, "Insurance Survey": 3,
-                    "Insurance Approval": 4, "WCA - Waiting for Customer Approval": 4,
-                    "WIP - Work Started": 5, "Dismantle": 5, "Denting": 6, 
-                    "Painting": 7, "Fitting": 8, "PNA - Part Not Available": 8,
-                    "Delivery Order Waiting from Insurance Company": 9, "Final Delivery": 10
-                }
+                mapping = {"Car Received": 1, "Claim Intimation": 2, "Insurance Survey": 3, "Insurance Approval": 4, "WCA - Waiting for Customer Approval": 4, "WIP - Work Started": 5, "Dismantle": 5, "Denting": 6, "Painting": 7, "Fitting": 8, "PNA - Part Not Available": 8, "Delivery Order Waiting from Insurance Company": 9, "Final Delivery": 10}
                 current_step_idx = mapping.get(row['Status'], 1)
                 
                 stepper_html = '<div class="stepper-wrapper">'
@@ -220,42 +220,17 @@ if menu == "Customer Portal / ग्राहक पोर्टल":
                 nxt = get_next_status(row['Status'])
                 current_status_idx = STATUS_LIST.index(row['Status']) if row['Status'] in STATUS_LIST else 0
                 is_approved = current_status_idx > APPROVAL_INDEX if row['Status'] != "Claim Rejected" else False
-                
                 d_date_display = row['Delivery Date'] if is_approved else "Pending Approval"
 
                 if row['Status'] == "Final Delivery":
-                    st.markdown(f"""
-                        <div class='delivery-ready-card'>
-                            <div style='font-size:26px; font-weight:bold; color:#1b5e20;'>🎉 Congratulations! / बधाई हो!</div>
-                            <h2 style='margin:10px 0;'>🚗 {row['Car Number']}</h2>
-                            <p style='font-size:18px;'>{STATUS_DETAILS.get(row['Status'], '')}</p>
-                            <p>Service Advisor: <b>{row['Service Advisor']}</b></p>
-                            <p class='status-time'>Final Update: {row['Remark Update TS']}</p>
-                            <hr style='border: 0.5px solid #ccc;'>
-                            <p style='font-size:20px; color:#28a745; font-weight:bold;'>✨ Delivery Date: {row['Delivery Date']}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"<div class='delivery-ready-card'><div style='font-size:26px; font-weight:bold; color:#1b5e20;'>🎉 Congratulations! / बधाई हो!</div><h2 style='margin:10px 0;'>🚗 {row['Car Number']}</h2><p style='font-size:18px;'>{STATUS_DETAILS.get(row['Status'], '')}</p><p>Service Advisor: <b>{row['Service Advisor']}</b></p><p class='status-time'>Final Update: {row['Remark Update TS']}</p><hr style='border: 0.5px solid #ccc;'><p style='font-size:20px; color:#28a745; font-weight:bold;'>✨ Delivery Date: {row['Delivery Date']}</p></div>", unsafe_allow_html=True)
                 else:
                     delivery_info_html = ""
                     if row['Status'] != "Claim Rejected":
-                        if not is_approved:
-                            delivery_info_html = f"<p style='margin-top:10px; font-size:14px; color:#d32f2f; background:#fff3e0; padding:10px; border-radius:8px; border-left:4px solid #f57c00;'><b>Note:</b> The estimated delivery date can only be confirmed once approval is received from the insurance company.</p>"
-                        else:
-                            delivery_info_html = f"<p>Expected Delivery: <b>{d_date_display}</b></p>"
+                        if not is_approved: delivery_info_html = f"<p style='margin-top:10px; font-size:14px; color:#d32f2f; background:#fff3e0; padding:10px; border-radius:8px; border-left:4px solid #f57c00;'><b>Note:</b> The estimated delivery date can only be confirmed once approval is received from the insurance company.</p>"
+                        else: delivery_info_html = f"<p>Expected Delivery: <b>{d_date_display}</b></p>"
 
-                    st.markdown(f"""
-                        <div class='customer-card'>
-                            <h2 style='margin:0;'>🚗 {row['Car Number']}</h2>
-                            <p>Owner: <b>{row['Customer Name']}</b> | Advisor: <b>{row['Service Advisor']}</b></p>
-                            <p class='status-time'>🕒 Last Update: {row['Remark Update TS']}</p>
-                            {stepper_html}
-                            <hr style='opacity:0.3;'>
-                            <h3 style='color:#1E88E5;'>Current Status: {row['Status']}</h3>
-                            <div class='next-step-box'><b>Next Step:</b> {row['Status']} ➔ <span style='color:#1565C0;'>{nxt}</span></div>
-                            <p style='margin-top:15px; font-size:16px; color:#333; background:#e3f2fd; padding:15px; border-radius:10px;'>{STATUS_DETAILS.get(row['Status'], 'Updating...')}</p>
-                            {delivery_info_html}
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"<div class='customer-card'><h2 style='margin:0;'>🚗 {row['Car Number']}</h2><p>Owner: <b>{row['Customer Name']}</b> | Advisor: <b>{row['Service Advisor']}</b></p><p class='status-time'>🕒 Last Update: {row['Remark Update TS']}</p>{stepper_html}<hr style='opacity:0.3;'><h3 style='color:#1E88E5;'>Current Status: {row['Status']}</h3><div class='next-step-box'><b>Next Step:</b> {row['Status']} ➔ <span style='color:#1565C0;'>{nxt}</span></div><p style='margin-top:15px; font-size:16px; color:#333; background:#e3f2fd; padding:15px; border-radius:10px;'>{STATUS_DETAILS.get(row['Status'], 'Updating...')}</p>{delivery_info_html}</div>", unsafe_allow_html=True)
                 
                 msg = str(row['Message'])
                 if msg != "" and msg != "nan" and msg.strip() != "":
@@ -264,40 +239,50 @@ if menu == "Customer Portal / ग्राहक पोर्टल":
 
 elif menu == "Guard Portal / गार्ड पोर्टल":
     if not st.session_state['guard_logged_in']:
-        st.markdown("<div class='main-header'><h1>GUARD LOGIN</h1></div>", unsafe_allow_html=True)
-        g_pw = st.text_input("Guard Password", type="password")
-        if st.button("🔓 Open Gate Portal"):
-            if g_pw == "krishna":
-                st.session_state['guard_logged_in'] = True
-                st.rerun()
-            else: st.error("Incorrect Password!")
+        st.markdown("<div class='main-header'><h1>🛡️ GUARD ACCESS</h1><p>Enter 4-Digit Quick PIN</p></div>", unsafe_allow_html=True)
+        _, col_pin, _ = st.columns([1, 2, 1])
+        with col_pin:
+            g_pin = st.text_input("Quick PIN", type="password", max_chars=4)
+            if st.button("🚀 UNLOCK PORTAL"):
+                if g_pin in ["krishna", "0000"]:
+                    st.session_state['guard_logged_in'] = True
+                    st.success("Access Granted!"); time.sleep(0.5); st.rerun()
+                else: st.error("Wrong PIN!")
     else:
-        if st.sidebar.button("🔒 Guard Logout"):
-            st.session_state['guard_logged_in'] = False
-            st.rerun()
-        st.markdown("<div class='main-header'><h1>GUARD ENTRY</h1></div>", unsafe_allow_html=True)
+        col_name, col_logout = st.columns([3, 1])
+        with col_name: st.markdown("### 🔓 Gate Portal Active")
+        with col_logout:
+            if st.button("🔒 Logout"): st.session_state['guard_logged_in'] = False; st.rerun()
+
+        st.markdown("<div class='main-header'><h1>GATE ENTRY FORM</h1></div>", unsafe_allow_html=True)
         with st.form("guard_form", clear_on_submit=True):
-            c1, c2 = st.columns(2)
+            c1, c2, c3 = st.columns(3)
             g_car = c1.text_input("Vehicle Number").upper().strip()
-            g_km = c2.text_input("Kilometer Reading")
-            if st.form_submit_button("🚀 Save Gate Entry"):
-                if g_car and g_km:
+            # MODIFIED: Added Vehicle Model Dropdown
+            g_model = c2.selectbox("Vehicle Model", VEHICLE_MODELS)
+            g_km = c3.text_input("Kilometer Reading")
+            
+            if st.form_submit_button("✅ SAVE & OPEN GATE"):
+                if g_car and g_km and g_model != "Select Model":
                     gdf = load_guard_data()
                     now_ts = get_india_time()
-                    new_e = pd.DataFrame([{"Car Number": g_car, "Kilometer": g_km, "Entry Date": now_ts.strftime("%Y-%m-%d"), "Entry Time": now_ts.strftime("%I:%M %p")}])
+                    new_e = pd.DataFrame([{"Car Number": g_car, "Vehicle Model": g_model, "Kilometer": g_km, "Entry Date": now_ts.strftime("%Y-%m-%d"), "Entry Time": now_ts.strftime("%I:%M %p")}])
                     lock = FileLock(GUARD_LOCK)
                     with lock: pd.concat([gdf, new_e]).to_csv(GUARD_FILE, index=False)
-                    st.success(f"Entry Saved for {g_car}!"); time.sleep(1); st.rerun()
+                    st.balloons(); st.success(f"Entry Saved for {g_car}!"); time.sleep(1); st.rerun()
+                else: st.warning("Please fill all details and select a model.")
         
+        st.markdown("### 🕒 Recent Entries")
         gdf = load_guard_data()
         if not gdf.empty:
-            gdf_rev = gdf.iloc[::-1]
+            gdf_rev = gdf.iloc[::-1].head(10)
             for i, row in gdf_rev.iterrows():
-                with st.expander(f"🚗 {row['Car Number']} | {row['Kilometer']} KM | {row['Entry Date']}"):
-                    if st.button(f"🗑️ Delete {row['Car Number']}", key=f"del_{i}"):
+                with st.expander(f"🚗 {row['Car Number']} | {row.get('Vehicle Model', 'N/A')} | {row['Kilometer']} KM"):
+                    st.write(f"Time: {row['Entry Time']} | Date: {row['Entry Date']}")
+                    if st.button(f"🗑️ Delete Entry", key=f"del_{i}"):
                         lock = FileLock(GUARD_LOCK)
                         with lock: gdf.drop(i).to_csv(GUARD_FILE, index=False)
-                        st.warning("Deleted!"); time.sleep(1); st.rerun()
+                        st.warning("Entry Removed!"); time.sleep(0.5); st.rerun()
 
 else:
     if not st.session_state['logged_in']:
@@ -306,7 +291,6 @@ else:
             if pw == "admin123": st.session_state['logged_in'] = True; st.rerun()
     else:
         if st.sidebar.button("🔒 Logout"): st.session_state['logged_in'] = False; st.rerun()
-        
         col_title, col_share = st.columns([3, 1])
         with col_title: st.markdown("## 📋 Staff Dashboard")
         with col_share:
@@ -318,13 +302,9 @@ else:
         t1, t2, t3 = st.tabs([" View Records", " Add New Car", "🛡️ Guard Records"])
         
         with t1:
-            # UPDATED SEARCH SECTION WITH BUTTON FOR MOBILE USERS
             sc1, sc2 = st.columns([4, 1])
-            with sc1:
-                search_input = st.text_input("Search Car", placeholder="Enter Car Number...", label_visibility="collapsed").upper().strip()
-            with sc2:
-                do_search = st.button("🔍 Search")
-            
+            with sc1: search_input = st.text_input("Search Car", placeholder="Enter Car Number...", label_visibility="collapsed").upper().strip()
+            with sc2: do_search = st.button("🔍 Search")
             f_df = df if not search_input else df[(df["Car Number"].str.upper().str.contains(search_input, na=False)) | (df["Car Number"].str.strip().str[-4:].str.contains(search_input, na=False))]
             
             def render_staff_expander(i, r, lock_sensitive=False):
@@ -366,8 +346,7 @@ else:
 
         with t2:
             with st.form("new_car"):
-                nc = st.text_input("Car Number").upper().strip()
-                nn = st.text_input("Customer Name"); sa = st.text_input("Advisor")
+                nc = st.text_input("Car Number").upper().strip(); nn = st.text_input("Customer Name"); sa = st.text_input("Advisor")
                 if st.form_submit_button("Save Car"):
                     if nc and nn:
                         now_ts = get_india_time()
@@ -381,16 +360,15 @@ else:
             gdf = load_guard_data()
             g_search = st.text_input("Search Guard Records (Car No.)", key="g_search").upper().strip()
             if not gdf.empty:
-                if g_search:
-                    gdf = gdf[gdf["Car Number"].str.contains(g_search, na=False)]
+                if g_search: gdf = gdf[gdf["Car Number"].str.contains(g_search, na=False)]
                 gdf_rev = gdf.iloc[::-1]
                 for i, row in gdf_rev.iterrows():
-                    with st.expander(f"🚗 {row['Car Number']} | {row['Kilometer']} KM | {row['Entry Date']} at {row['Entry Time']}"):
+                    with st.expander(f"🚗 {row['Car Number']} | {row.get('Vehicle Model', 'N/A')} | {row['Kilometer']} KM | {row['Entry Date']} at {row['Entry Time']}"):
                         st.write(f"**Vehicle:** {row['Car Number']}")
+                        st.write(f"**Model:** {row.get('Vehicle Model', 'N/A')}")
                         st.write(f"**KM Reading:** {row['Kilometer']}")
                         st.write(f"**Date:** {row['Entry Date']}")
                         st.write(f"**Time:** {row['Entry Time']}")
-            else:
-                st.info("No guard entries found.")
+            else: st.info("No guard entries found.")
 
 st.markdown("<br><center class='footer-text'><b>Engineered by Owais</b><br>Bodyshop Portal © 2026</center>", unsafe_allow_html=True)
