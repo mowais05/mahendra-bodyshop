@@ -1,7 +1,4 @@
 streamlit
 pandas
-pytz
-filelock
 PyGithub
-pandas
-streamlit
+openpyxl
