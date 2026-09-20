@@ -4,8 +4,15 @@ import os
 import time
 import urllib.parse
 from datetime import datetime
-import pytz
-from filelock import FileLock
+
+# --- LIBRARIES & AUTO-INSTALL ---
+try:
+    import pytz
+    from filelock import FileLock
+except ImportError:
+    os.system('pip install pytz filelock')
+    import pytz
+    from filelock import FileLock
 
 # --- CONFIG & THEME ---
 st.set_page_config(page_title="Bodyshop", layout="wide", page_icon="🚗", initial_sidebar_state="collapsed")
@@ -20,7 +27,7 @@ if 'logged_in' not in st.session_state:
 if 'guard_logged_in' not in st.session_state:
     st.session_state['guard_logged_in'] = False
 
-# --- CSS STYLES ---
+# --- FULL CSS RESTORED + STEPPER CSS ---
 st.markdown("""
     <style>
     .stApp { background-color: #f8f9fa; }
@@ -90,9 +97,13 @@ st.markdown("""
         background-color: #fff9c4; color: #5d4037; padding: 15px;
         border-radius: 10px; border-left: 5px solid #fbc02d; margin-top: 15px;
     }
+    .update-ts-label { font-size: 12px; color: #d32f2f; font-weight: bold; }
     .next-step-box {
         background-color: #f1f8e9; border: 1px dashed #28a745;
         padding: 8px 15px; border-radius: 8px; margin-top: 10px; font-size: 14px;
+    }
+    .time-large {
+        font-size: 20px; color: #1565C0; font-weight: bold; margin-top: 10px;
     }
     .stButton>button { width: 100%; height: 3.5em; border-radius: 12px; font-weight: bold; }
     div.stFormSubmitButton > button {
@@ -120,6 +131,7 @@ TODAY_STR = NOW_IN.strftime("%Y-%m-%d")
 
 WEB_URL = "https://mahendra-bodyshop-pnzpwm5nbeok4x5usgtntb.streamlit.app/"
 
+# --- VEHICLE MODELS LIST ---
 VEHICLE_MODELS = [
     "Select Model", "Armada", "Alfa", "Axe", "BE 6", "Bolero", "Bolero Neo", "Bolero Neo Plus", "Bolero Camper",
     "Camper", "Cruzio", "e2o", "e2o Plus", "eVerito", "Genio", "Gio", "Grand Armada", "Invader", "Jeeto", 
@@ -145,7 +157,7 @@ STATUS_DETAILS = {
     "Dismantle": "Your vehicle is currently undergoing dismantling for a detailed damage assessment and repair preparation. / आपकी गाड़ी की मरम्मत की तैयारी और नुकसान की बारीकी से जांच करने के लिए उसे डिस्मेंटल किया (खोला) जा रहा है।",
     "Denting": "Denting work is in progress. / आपकी गाड़ी का डेंटिंग कार्य चल रहा है।",
     "Painting": "Painting work is in progress. / आपकी गाड़ी का पेंटिंग कार्य चल रहा. है।",
-    "Fitting": "The major repairs are complete. Your vehicle is now undergoing final assembly and quality testing to ensure your safety on the road. / मुख्य मरम्मत का काम पूरा हो चुका है। सड़क पर आपकी सुरक्षा सुनिश्चित करने के लिए अब गाड़ी की फाइनल फिटिंग और क्वालिटी टेस्टिंग की जा रही है।",
+    "Fitting": "The major repairs are complete. Your vehicle is now undergoing final assembly and quality testing to ensure your safety on the road. / मुख्य मरम्मत का काम पूरा ho चुका है। सड़क पर आपकी सुरक्षा सुनिश्चित करने के लिए अब गाड़ी की फाइनल फिटिंग और क्वालिटी टेस्टिंग की जा रही है।",
     "Delivery Order Waiting from Insurance Company": "The repair work is complete, and we are currently awaiting the official Delivery Order (DO) from the insurance surveyor. Please note that the vehicle cannot be released without this mandatory document. For any updates regarding the DO, we kindly request you to contact your insurance surveyor directly, as the repairer has no authority in this matter. We appreciate your cooperation. / आपकी गाड़ी की मरम्मत का कार्य पूरा हो चुका है, और अब हमें बीमा सर्वेयर से आधिकारिक डिलीवरी ऑर्डर (DO) मिलने का इंतज़ार है। कृपया ध्यान दें कि इस अनिवार्य दस्तावेज़ के बिना गाड़ी हैंडओवर नहीं की जा सकती। डिलीवरी ऑर्डर (DO) के संबंध में किसी भी जानकारी के लिए कृपया सीधे अपने बीमा सर्वेयर से संपर्क करें, क्योंकि इसमें रिपेयरर (वर्कशॉप) का कोई अधिकार नहीं होता है। आपके सहयोग के लिए धन्यवाद।",
     "Final Delivery": "Your vehicle is ready for delivery! / आपकी गाड़ी डिलीवरी के लिए तैयार हैं!"
 }
@@ -246,6 +258,7 @@ elif menu == "Guard Portal / गार्ड पोर्टल":
         with st.form("guard_form", clear_on_submit=True):
             c1, c2, c3 = st.columns(3)
             g_car = c1.text_input("Vehicle Number").upper().strip()
+            # MODIFIED: Added Vehicle Model Dropdown
             g_model = c2.selectbox("Vehicle Model", VEHICLE_MODELS)
             g_km = c3.text_input("Kilometer Reading")
             
